@@ -110,6 +110,7 @@
 }
 
 .tracks-list-box row {
+  min-height: 3.5em;
   border-radius: 12px;
   background-color: transparent;
   transition: background-color 0.1s ease-in-out;
