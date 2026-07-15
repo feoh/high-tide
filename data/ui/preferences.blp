@@ -4,6 +4,23 @@ using Adw 1;
 Adw.PreferencesDialog _preference_window {
   Adw.PreferencesPage {
     Adw.PreferencesGroup {
+      title: _("Accessibility");
+      Adw.ComboRow _text_size_row {
+        model: StringList {
+          strings [
+            _("Default (100%)"),
+            _("Large (125%)"),
+            _("Extra Large (150%)"),
+            _("2XL (200%)"),
+          ]
+        };
+
+        title: _("Text Size");
+        subtitle: _("Adjust the size of text throughout the app");
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: _("Audio");
       Adw.ComboRow _quality_row {
         model: StringList {

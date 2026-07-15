@@ -19,13 +19,17 @@
 
 import sys
 from gettext import gettext as _
-from typing import Any, Callable, List
+from typing import Any, Callable, List, cast
 
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gio, Gtk  # pyright: ignore[reportAttributeAccessIssue]
 
 from .lib import utils
 from .lib.player_object import AudioSink
 from .window import HighTideWindow
+
+
+DEFAULT_FONT_DPI = 96 * 1024
+TEXT_SIZE_SCALES = (1.0, 1.25, 1.5, 2.0)
 
 
 class HighTideApplication(Adw.Application):
@@ -52,22 +56,35 @@ class HighTideApplication(Adw.Application):
         utils.setup_logging()
 
         self.settings: Gio.Settings = Gio.Settings.new("io.github.nokse22.high-tide")
+        self.gtk_settings: Gtk.Settings | None = Gtk.Settings.get_default()
+        self.base_font_dpi = DEFAULT_FONT_DPI
+        if self.gtk_settings:
+            configured_dpi = self.gtk_settings.get_property("gtk-xft-dpi")
+            if configured_dpi > 0:
+                self.base_font_dpi = configured_dpi
+
+        self.settings.connect("changed::text-size", self.on_text_size_setting_changed)
+        self.apply_text_size()
 
         self.preferences: Gtk.Window | None = None
+        self.win: HighTideWindow
 
         self.alsa_devices = utils.get_alsa_devices()
 
     def do_open(self, files: List[Gio.File], n_files: int, hint: str) -> None:
-        self.win: HighTideWindow | None = self.props.active_window
-        if not self.win:
+        win = cast(HighTideWindow | None, self.props.active_window)
+        if win is None:
             self.do_activate()
+            win = self.win
+        else:
+            self.win = win
 
         uri: str = files[0].get_uri()
         if uri:
-            if self.win.is_logged_in:
+            if win.is_logged_in:
                 utils.open_tidal_uri(uri)
             else:
-                self.win.queued_uri = uri
+                win.queued_uri = cast(Any, uri)
 
     def on_login_action(self, *args) -> None:
         """Handle the login action by initiating a new login process."""
@@ -79,11 +96,12 @@ class HighTideApplication(Adw.Application):
 
     def do_activate(self) -> None:
         """Activate the application by creating and presenting the main window."""
-        self.win: HighTideWindow | None = self.props.active_window
-        if not self.win:
-            self.win = HighTideWindow(application=self)
+        win = cast(HighTideWindow | None, self.props.active_window)
+        if win is None:
+            win = HighTideWindow(application=self)
 
-        self.win.present()
+        self.win = win
+        win.present()
 
     def on_about_action(self, widget: Any, *args) -> None:
         """Display the about dialog with application information"""
@@ -117,6 +135,13 @@ class HighTideApplication(Adw.Application):
         if not self.preferences:
             builder: Gtk.Builder = Gtk.Builder.new_from_resource(
                 "/io/github/nokse22/high-tide/ui/preferences.ui"
+            )
+
+            builder.get_object("_text_size_row").set_selected(
+                self.settings.get_int("text-size")
+            )
+            builder.get_object("_text_size_row").connect(
+                "notify::selected", self.on_text_size_changed
             )
 
             builder.get_object("_quality_row").set_selected(
@@ -216,7 +241,28 @@ class HighTideApplication(Adw.Application):
 
             self.preferences = builder.get_object("_preference_window")
 
-        self.preferences.present(self.win)
+        preferences = self.preferences
+        if preferences:
+            preferences.present(self.win)
+
+    def apply_text_size(self) -> None:
+        """Apply the selected text scale to this GTK process."""
+        if not self.gtk_settings:
+            return
+
+        selected = self.settings.get_int("text-size")
+        scaled_dpi = round(self.base_font_dpi * TEXT_SIZE_SCALES[selected])
+        self.gtk_settings.set_property("gtk-xft-dpi", scaled_dpi)
+
+    def on_text_size_setting_changed(self, *args) -> None:
+        """Apply text size changes made through GSettings."""
+        self.apply_text_size()
+
+    def on_text_size_changed(self, widget: Any, *args) -> None:
+        """Persist the text size selected in preferences."""
+        selected = widget.get_selected()
+        if selected != self.settings.get_int("text-size"):
+            self.settings.set_int("text-size", selected)
 
     def on_quality_changed(self, widget: Any, *args) -> None:
         self.win.select_quality(widget.get_selected())
@@ -248,7 +294,10 @@ class HighTideApplication(Adw.Application):
             self.alsa_row.set_selected(0)
 
     def create_action(
-        self, name: str, callback: Callable, shortcuts: List[str] | None = None
+        self,
+        name: str,
+        callback: Callable[..., Any],
+        shortcuts: List[str] | None = None,
     ) -> None:
         """Create a new application action with optional keyboard shortcuts.
 

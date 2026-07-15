@@ -463,12 +463,17 @@ template $HighTideWindow: Adw.ApplicationWindow {
                   }
 
                   Box {
-                    halign: center;
+                    hexpand: true;
                     spacing: 6;
 
                     Label song_title_label {
                       label: _("No Song");
                       ellipsize: end;
+                      hexpand: true;
+                      justify: center;
+                      lines: 2;
+                      wrap: true;
+                      xalign: 0.5;
 
                       styles [
                         "title-1",
@@ -491,6 +496,10 @@ template $HighTideWindow: Adw.ApplicationWindow {
                   $HTLinkLabelWidget artist_label {
                     label: _("Nobody");
                     ellipsize: "end";
+                    justify: center;
+                    lines: 2;
+                    wrap: true;
+                    xalign: 0.5;
 
                     styles [
                       "title-3",

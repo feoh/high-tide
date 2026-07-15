@@ -24,7 +24,9 @@ template $HTShorcutWidget: Gtk.FlowBoxChild {
       Label title_label {
         ellipsize: end;
         hexpand: true;
+        lines: 2;
         max-width-chars: 20;
+        wrap: true;
         xalign: 0.0;
       }
 
@@ -35,8 +37,10 @@ template $HTShorcutWidget: Gtk.FlowBoxChild {
 
         ellipsize: end;
         // visible: false;
+        lines: 2;
         max-width-chars: 20;
         hexpand: true;
+        wrap: true;
         xalign: 0.0;
       }
     }

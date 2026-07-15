@@ -41,6 +41,8 @@ template $HTCardWidget: Adw.BreakpointBin {
       max-width-chars: 13;
       xalign: 0;
       ellipsize: end;
+      lines: 2;
+      wrap: true;
     }
 
     Box details_box {
@@ -52,11 +54,15 @@ template $HTCardWidget: Adw.BreakpointBin {
         max-width-chars: 16;
         xalign: 0;
         ellipsize: end;
+        lines: 2;
+        wrap: true;
       }
 
       $HTLinkLabelWidget track_artist_label {
         ellipsize: 'end';
+        lines: 2;
         max-width-chars: 16;
+        wrap: true;
         xalign: '0';
       }
     }

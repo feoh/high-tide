@@ -10,6 +10,10 @@
 	  <key name="quality" type="i">
       <default>2</default>
     </key>
+    <key name="text-size" type="i">
+      <range min="0" max="3"/>
+      <default>0</default>
+    </key>
 	  <key name="last-playing-index" type="i">
       <default>-1</default>
     </key>

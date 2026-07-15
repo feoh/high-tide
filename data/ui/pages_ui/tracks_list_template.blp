@@ -11,7 +11,7 @@ Box _main {
     vexpand-set: true;
 
     Adw.Breakpoint {
-      condition ("max-width: 500px")
+      condition ("max-width: 500sp")
 
       setters {
         multi_layout_view.layout-name: "vertical";
@@ -192,7 +192,9 @@ Box _main {
         ]
 
         ellipsize: end;
+        lines: 2;
         vexpand: true;
+        wrap: true;
         xalign: 0.0;
       }
 
@@ -206,6 +208,7 @@ Box _main {
         ellipsize: end;
         vexpand: true;
         lines: 2;
+        wrap: true;
         xalign: 0.0;
       }
 
@@ -217,7 +220,8 @@ Box _main {
 
         ellipsize: end;
         vexpand: true;
-        lines: 1;
+        lines: 2;
+        wrap: true;
         xalign: 0.0;
       }
 

@@ -9,7 +9,7 @@ Box _main {
     height-request: 150;
 
     Adw.Breakpoint {
-      condition ("max-width: 500px")
+      condition ("max-width: 500sp")
 
       setters {
         multi_layout_view.layout-name: "vertical";
@@ -154,7 +154,9 @@ Box _main {
         ]
 
         ellipsize: end;
+        lines: 2;
         vexpand: true;
+        wrap: true;
         xalign: 0.0;
         yalign: 0.0;
       }
@@ -166,7 +168,9 @@ Box _main {
         ]
 
         ellipsize: end;
+        lines: 2;
         vexpand: true;
+        wrap: true;
         xalign: 0.0;
         yalign: 0.0;
       }

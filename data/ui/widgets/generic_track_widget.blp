@@ -9,7 +9,7 @@ template $HTGenericTrackWidget: ListBoxRow {
     height-request: 56;
 
     Adw.Breakpoint {
-      condition ("max-width: 600px")
+      condition ("max-width: 600sp")
 
       setters {
         _grid.visible: false;
@@ -59,6 +59,8 @@ template $HTGenericTrackWidget: ListBoxRow {
         $HTLinkLabelWidget track_album_label {
           xalign: "0";
           ellipsize: "3";
+          lines: 2;
+          wrap: true;
 
           layout {
             column: "5";
@@ -81,7 +83,9 @@ template $HTGenericTrackWidget: ListBoxRow {
 
             ellipsize: end;
             label: _("Title");
+            lines: 2;
             vexpand: true;
+            wrap: true;
             xalign: 0.0;
           }
 
@@ -101,6 +105,8 @@ template $HTGenericTrackWidget: ListBoxRow {
         $HTLinkLabelWidget artist_label {
           xalign: "0";
           ellipsize: "3";
+          lines: 2;
+          wrap: true;
 
           layout {
             column: "3";
@@ -124,7 +130,9 @@ template $HTGenericTrackWidget: ListBoxRow {
             ]
 
             ellipsize: end;
+            lines: 2;
             vexpand: true;
+            wrap: true;
             xalign: 0.0;
           }
 
@@ -145,8 +153,10 @@ template $HTGenericTrackWidget: ListBoxRow {
           xalign: "0";
           use-markup: "true";
           ellipsize: "3";
+          lines: 2;
           margin-bottom: "6";
           label: bind artist_label.label;
+          wrap: true;
         }
       }
 
