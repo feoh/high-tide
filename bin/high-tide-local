@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# Safely install or uninstall a local Meson build of High Tide.
+# Run this script; do not source it.
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+# Keep the script usable even if the caller's interactive shell PATH was broken.
+export PATH="${HOME}/.cargo/bin:${HOME}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:${PATH}}"
+
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+DEFAULT_BUILDDIR="${HIGH_TIDE_BUILDDIR:-build-local}"
+DEFAULT_PREFIX="${HIGH_TIDE_PREFIX:-${HOME}/.local}"
+APP_ID="io.github.nokse22.high-tide"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  bin/high-tide-local install [--builddir DIR] [--prefix PREFIX]
+  bin/high-tide-local uninstall [--builddir DIR] [--prefix PREFIX] [--dry-run] [--yes]
+
+Defaults:
+  --builddir build-local
+  --prefix   ~/.local
+
+Examples:
+  bin/high-tide-local install
+  bin/high-tide-local uninstall --dry-run
+  bin/high-tide-local uninstall --yes
+
+Notes:
+  - Run this script; do not source it.
+  - The uninstall command only removes High Tide files listed in Meson's
+    install log and matching High Tide's expected install paths.
+  - It does not delete user preferences, login state, caches, or history.
+EOF
+}
+
+need_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'error: required command not found: %s\n' "$1" >&2
+    exit 127
+  fi
+}
+
+parse_common_options() {
+  BUILDDIR="$DEFAULT_BUILDDIR"
+  PREFIX="$DEFAULT_PREFIX"
+
+  while (($#)); do
+    case "$1" in
+      --builddir)
+        [[ $# -ge 2 ]] || { echo 'error: --builddir requires a value' >&2; exit 2; }
+        BUILDDIR="$2"
+        shift 2
+        ;;
+      --prefix)
+        [[ $# -ge 2 ]] || { echo 'error: --prefix requires a value' >&2; exit 2; }
+        PREFIX="$2"
+        shift 2
+        ;;
+      *)
+        REMAINING_ARGS+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+install_local() {
+  REMAINING_ARGS=()
+  parse_common_options "$@"
+  if ((${#REMAINING_ARGS[@]})); then
+    printf 'error: unknown install option: %s\n' "${REMAINING_ARGS[0]}" >&2
+    exit 2
+  fi
+
+  need_command meson
+
+  cd -- "$REPO_ROOT"
+  printf 'Installing High Tide from %s\n' "$REPO_ROOT"
+  printf 'Build directory: %s\n' "$BUILDDIR"
+  printf 'Install prefix:  %s\n' "$PREFIX"
+
+  if [[ -d "$BUILDDIR/meson-info" ]]; then
+    meson setup --reconfigure "$BUILDDIR" --prefix "$PREFIX"
+  else
+    meson setup "$BUILDDIR" --prefix "$PREFIX"
+  fi
+
+  meson compile -C "$BUILDDIR"
+  meson install -C "$BUILDDIR"
+
+  cat <<EOF
+
+Installed ${APP_ID} locally.
+If your shell already had a cached command lookup, refresh it with one of:
+  zsh:  rehash
+  bash: hash -r
+EOF
+}
+
+uninstall_local() {
+  REMAINING_ARGS=()
+  parse_common_options "$@"
+
+  DRY_RUN=0
+  YES=0
+  for arg in "${REMAINING_ARGS[@]}"; do
+    case "$arg" in
+      --dry-run) DRY_RUN=1 ;;
+      --yes|-y) YES=1 ;;
+      *)
+        printf 'error: unknown uninstall option: %s\n' "$arg" >&2
+        exit 2
+        ;;
+    esac
+  done
+
+  cd -- "$REPO_ROOT"
+
+  local install_log="$BUILDDIR/meson-logs/install-log.txt"
+  if [[ ! -f "$install_log" ]]; then
+    printf 'error: Meson install log not found: %s\n' "$install_log" >&2
+    printf 'Install first with: bin/high-tide-local install --builddir %s --prefix %s\n' "$BUILDDIR" "$PREFIX" >&2
+    exit 1
+  fi
+
+  if command -v pgrep >/dev/null 2>&1 && pgrep -x high-tide >/dev/null 2>&1; then
+    printf 'warning: high-tide is currently running; close it before uninstalling.\n' >&2
+  fi
+
+  need_command python3
+  python3 - "$install_log" "$PREFIX" "$DRY_RUN" "$YES" <<'PY'
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+install_log = Path(sys.argv[1])
+prefix = Path(sys.argv[2]).expanduser().resolve(strict=False)
+dry_run = sys.argv[3] == "1"
+yes = sys.argv[4] == "1"
+app_id = "io.github.nokse22.high-tide"
+
+
+def is_relative_to(child: Path, parent: Path) -> bool:
+    try:
+        child.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def allowed_high_tide_path(candidate: Path) -> bool:
+    """Allow only the files High Tide's Meson install is expected to create."""
+    absolute = candidate.expanduser().resolve(strict=False)
+    if not is_relative_to(absolute, prefix):
+        return False
+
+    rel = absolute.relative_to(prefix)
+    parts = rel.parts
+
+    exact = {
+        Path("bin/high-tide"),
+        Path(f"share/applications/{app_id}.desktop"),
+        Path(f"share/appdata/{app_id}.appdata.xml"),
+        Path(f"share/metainfo/{app_id}.metainfo.xml"),
+        Path(f"share/glib-2.0/schemas/{app_id}.gschema.xml"),
+        Path(f"share/icons/hicolor/scalable/apps/{app_id}.svg"),
+        Path(f"share/icons/hicolor/symbolic/apps/{app_id}-symbolic.svg"),
+    }
+    if rel in exact:
+        return True
+
+    if len(parts) >= 2 and parts[0] == "share" and parts[1] == "high-tide":
+        return True
+
+    if (
+        len(parts) == 5
+        and parts[0] == "share"
+        and parts[1] == "locale"
+        and parts[3] == "LC_MESSAGES"
+        and parts[4] == "high-tide.mo"
+    ):
+        return True
+
+    return False
+
+
+entries: list[Path] = []
+skipped: list[str] = []
+for raw_line in install_log.read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    candidate = Path(line).expanduser()
+    if not candidate.is_absolute():
+        skipped.append(f"not absolute: {line}")
+        continue
+    if not allowed_high_tide_path(candidate):
+        skipped.append(f"outside High Tide allow-list: {line}")
+        continue
+    entries.append(candidate)
+
+# Preserve install-log order while de-duplicating.
+seen: set[Path] = set()
+targets: list[Path] = []
+for entry in entries:
+    key = entry.resolve(strict=False)
+    if key not in seen:
+        targets.append(entry)
+        seen.add(key)
+
+# Symlinks are safe here: Path.unlink() removes the link itself and never
+# follows a symlink to delete its target.
+existing_files = [
+    target for target in targets if target.is_file() or target.is_symlink()
+]
+existing_other = [
+    target for target in targets if target.exists() and target not in existing_files
+]
+missing = [target for target in targets if not target.exists()]
+
+print(f"Install log: {install_log}")
+print(f"Allowed prefix: {prefix}")
+print(f"High Tide files to remove: {len(existing_files)}")
+print(f"Already absent: {len(missing)}")
+if skipped:
+    print(f"Skipped non-High-Tide or unsafe install-log entries: {len(skipped)}")
+    for item in skipped:
+        print(f"  - {item}")
+if existing_other:
+    print("Skipped existing paths that are not regular files or symlinks:")
+    for item in existing_other:
+        print(f"  - {item}")
+
+for target in existing_files:
+    print(f"  {'would remove' if dry_run else 'remove'} {target}")
+
+if dry_run:
+    print("Dry run only; no files were removed.")
+    raise SystemExit(0)
+
+if not existing_files:
+    print("No installed High Tide files found to remove.")
+    raise SystemExit(0)
+
+if not yes:
+    answer = input("Remove these High Tide files? Type 'yes' to continue: ")
+    if answer != "yes":
+        print("Cancelled; no files were removed.")
+        raise SystemExit(1)
+
+removed: list[Path] = []
+for target in existing_files:
+    target.unlink()
+    removed.append(target)
+
+# Remove only directories that became empty as a result of removing listed files.
+parents: set[Path] = set()
+for target in removed:
+    parent = target.parent.resolve(strict=False)
+    while is_relative_to(parent, prefix) and parent != prefix:
+        parents.add(parent)
+        parent = parent.parent
+
+for directory in sorted(parents, key=lambda p: len(p.parts), reverse=True):
+    try:
+        directory.rmdir()
+    except OSError:
+        pass
+
+
+def run_cache_update(command: str, *args: Path | str) -> None:
+    exe = shutil.which(command)
+    if not exe:
+        return
+    subprocess.run([exe, *map(str, args)], check=False)
+
+schemas_dir = prefix / "share/glib-2.0/schemas"
+icons_dir = prefix / "share/icons/hicolor"
+applications_dir = prefix / "share/applications"
+
+if schemas_dir.exists():
+    run_cache_update("glib-compile-schemas", schemas_dir)
+if icons_dir.exists():
+    run_cache_update("gtk-update-icon-cache", "-q", icons_dir)
+if applications_dir.exists():
+    run_cache_update("update-desktop-database", applications_dir)
+
+print(f"Removed {len(removed)} High Tide files.")
+print("If your shell cached the old executable location, run: rehash  # zsh")
+print("or: hash -r  # bash")
+PY
+}
+
+main() {
+  if (($# == 0)); then
+    usage
+    exit 2
+  fi
+
+  local command_name="$1"
+  shift
+  case "$command_name" in
+    install) install_local "$@" ;;
+    uninstall) uninstall_local "$@" ;;
+    -h|--help|help) usage ;;
+    *)
+      printf 'error: unknown command: %s\n\n' "$command_name" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

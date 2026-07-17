@@ -46,23 +46,72 @@ If you want/need locales, please build from source.
 
 ### ⚡ From source (binary)
 
-You just need to clone the repository, and build with meson.
+You just need to clone the repository and build with Meson.
+
+For a safe user-local install into `~/.local`, use the helper script:
 
 ```sh
 git clone https://github.com/Nokse22/high-tide.git
-meson builddir
-meson compile -C builddir
-meson install -C builddir
+cd high-tide
+bin/high-tide-local install
+```
+
+This configures `build-local` with `--prefix ~/.local`, builds the app,
+installs it, and leaves Meson's install log in
+`build-local/meson-logs/install-log.txt` for a matching uninstall.
+
+If your shell has already cached the `high-tide` command path, refresh it after
+installing:
+
+```sh
+# zsh
+rehash
+
+# bash
+hash -r
 ```
 
 Or open the project in GNOME Builder and click "Run Project".
 
 ## ❌ Uninstallation
-We're sorry to see you go! If you want to remove the High Tide flatpak package from your system, here's how to do so:
 
-First, terminate all High Tide processes. Keep in mind that "Run in background" is an option, usually pressing ^Q should be enough to terminate it. Otherwise, you can run `killall high-tide` to make sure that everything is killed.
+First, terminate all High Tide processes. Keep in mind that "Run in
+background" is an option, usually pressing ^Q should be enough to terminate it.
 
-You can then remove the package using flatpak :
+### Local source install
+
+If you installed from this checkout with `bin/high-tide-local install`, preview
+the uninstall first:
+
+```sh
+cd high-tide
+bin/high-tide-local uninstall --dry-run
+```
+
+Then remove the installed files:
+
+```sh
+bin/high-tide-local uninstall --yes
+```
+
+The helper only removes High Tide files listed in Meson's install log and
+matching High Tide's expected install paths. It does not delete user preferences,
+login state, caches, or history.
+
+Refresh your shell's command cache afterwards if needed:
+
+```sh
+# zsh
+rehash
+
+# bash
+hash -r
+```
+
+### Flatpak install
+
+If you installed the Flatpak package, remove it with Flatpak:
+
 ```sh
 # When installed system-wide (default)
 flatpak uninstall --delete-data io.github.nokse22.high-tide
@@ -71,7 +120,7 @@ flatpak uninstall --delete-data io.github.nokse22.high-tide
 flatpak uninstall --delete-data -u io.github.nokse22.high-tide
 ```
 
-The `--delete-data` flag should get rid of all the "junk" directories (i.e. cache, configs, etc.) on your system, and you don't need to do anything else.
+The `--delete-data` flag should get rid of Flatpak's app data directories.
 
 ## 🤝 Contributing
 
