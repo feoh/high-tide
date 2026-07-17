@@ -1,7 +1,16 @@
+# UNOFFICIAL ACCESSIBILITY FORK
+
+> [!WARNING]
+> This repository is an unofficial accessibility-focused fork of High Tide. The
+> upstream maintainer has rejected these changes, so support questions and bug
+> reports about this fork should go to this fork, not upstream. Please file bugs
+> against <https://github.com/feoh/high-tide> or contact Christopher Patti
+> (@feoh).
+
 <div align="center">
   <img height="128" src="data/icons/hicolor/scalable/apps/io.github.nokse22.high-tide.svg" alt="High Tide Logo"/>
   
-  # High Tide
+  ## High Tide
   
   <p align="center">
     <strong>Linux client for TIDAL streaming service</strong>
